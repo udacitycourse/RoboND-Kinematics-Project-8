@@ -64,14 +64,18 @@ def test_code(test_case):
     ## 
 
     ## Insert IK code here!
-    '''
-    theta1 = test_case[2][0]
-    theta2 = test_case[2][1]
-    theta3 = test_case[2][2]
-    theta4 = test_case[2][3]
-    theta5 = test_case[2][4]
-    theta6 = test_case[2][5]
-    '''
+    # Extract end-effector a.k.a gripper_link position and orientation from request
+    # px,py,pz = end-effector position
+    # roll, pitch, yaw = end-effector orientation
+    px = req.poses[x].position.x
+    py = req.poses[x].position.y
+    pz = req.poses[x].position.z
+
+    (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(
+        [req.poses[x].orientation.x, req.poses[x].orientation.y,
+         req.poses[x].orientation.z, req.poses[x].orientation.w])
+
+
     theta1 = 0
     theta2 = 0
     theta3 = 0
@@ -130,40 +134,61 @@ def test_code(test_case):
     R_z = Matrix([[    cos(pi),     -sin(pi),   0,  0],
                   [    sin(pi),      cos(pi),   0,  0],
                   [          0,            0,   1,  0],
-                  [          0,            0,   0,  1]])
+                  [          0,            0,   0,  1]])  # YAW
 
     R_y = Matrix([[ cos(-pi/2),     0,  sin(-pi/2),   0],
                   [          0,     1,            0,  0],
                   [-sin(-pi/2),     0,   cos(-pi/2),  0],
-                  [          0,     0,            0,  1]])
+                  [          0,     0,            0,  1]])  # PITCH
 
-    '''
-    R_y = Matrix([[ cos(-pi/2),     0,  sin(-pi/2)],
-                  [          0,     1,           0],
-                  [-sin(-pi/2),     0,  cos(-pi/2)]])
-
-    R_z = Matrix([[    cos(pi),     -sin(pi),   0],
-                  [    sin(pi),      cos(pi),   0],
-                  [          0,            0,   1]])
-'''
-    '''
-    (roll, pitch, yaw) = tf.transformations.euler_from_quaternion([test_case[0][1][0], test_case[0][1][1],
-                                                                   test_case[0][1][2], test_case[0][1][3]])
-    R_z_extrinsic = Matrix([[cos(yaw), -sin(yaw), 0],
-                            [sin(yaw), cos(yaw), 0],
-                            [0, 0, 1]])
-    R_y_extrinsic = Matrix([[cos(pitch), 0, sin(pitch)],
-                            [0, 1, 0],
-                            [-sin(pitch), 0, cos(pitch)]])
-    R_x_extrinsic = Matrix([[1, 0, 0],
-                            [0, cos(roll), -sin(roll)],
-                            [0, sin(roll), cos(roll)]])
-    XYZ_extrinsic_rot = eye(4)
-    XYZ_extrinsic_rot[0:3, 0:3] = R_z_extrinsic * R_y_extrinsic * R_x_extrinsic
-    '''
     R_corr = R_z * R_y
     T_total = T0_G * R_corr
-    print(Matrix(T_total.evalf(subs={q1:0, q2:0, q3:0, q4:0, q5:0, q6:0, q7:0})))
+    print(Matrix(T_total.evalf(subs={q1: 0, q2: 0, q3: 0, q4: 0, q5: 0, q6: 0, q7: 0})))
+
+
+
+    # calculate o4o5o6 (wrist center location)
+    r, p, y = symbols('r p y')
+    R_ee_x = Matrix([[      1,      0,       0, 0],
+                     [      0, cos(r), -sin(r), 0],
+                     [      0, sin(r),  cos(r), 0],
+                     [      0,      0,       0, 1]])  # ROLL
+
+    R_ee_y = Matrix([[ cos(p),      0,  sin(p), 0],
+                     [      0,      1,       0, 0],
+                     [-sin(p),      0,  cos(p), 0],
+                     [      0,      0,       0, 1]])  # PITCH
+
+    R_ee_z = Matrix([[ cos(y), -sin(y),   0, 0],
+                     [ sin(y),  cos(y),   0, 0],
+                     [      0,       0,   1, 0],
+                     [      0,       0,   0, 1]])  # YAW
+
+    p = Matrix([[px], [py], [pz], [1]])
+    d6 = Matrix([[0], [0], [-(0.193 + 0.11)], [1]])  # from gripper_link to link5
+    R_ee = R_ee_z * R_ee_y * R_ee_x
+    R_ee = R_ee.subs({'r': roll, 'p': pitch, 'y': yaw})
+    WC = p - R_ee*T_total*d6
+
+    WC = WC.evalf(subs={q1: 0, q2: 0, q3: 0, q4: 0, q5: 0, q6: 0, q7: 0})
+
+    ### calculate theta1, theta2 and theta3
+    theta1 = atan2(WC[1], WC[0])
+
+    # sides
+    B = np.sqrt(float((np.sqrt(float(WC[0]**2+WC[1]**2))-DH_table[a1])**2 + (WC[2]-DH_table[d1])**2))
+    A = DH_table[d4]  # link 3 to link 5 TODO: in the example code the value is 1.501 ??
+    C = DH_table[a2]
+
+    # angles
+    a = acos((B * B * C * C - A * A) / (2 * B * C))
+    b = acos((A * A * C * C - B * B) / (2 * A * C))
+    c = acos((A * A * B * B - C * C) / (2 * A * B))
+
+    #theta2 = pi / 2 - a - acos((np.sqrt(float(WC[0]**2+WC[1]**2))-DH_table[a1]),B)
+    theta3 = pi / 2 - (b+0.036)  # TODO: CHECK
+
+
 
     ## 
     ########################################################################################
