@@ -23,7 +23,10 @@ test_cases = {1:[[[2.16135,-1.42635,1.55109],
                   [0.01735,-0.2179,0.9025,0.371016]],
                   [-1.1669,-0.17989,0.85137],
                   [-2.99,-0.12,0.94,4.06,1.29,-4.12]],
-              4:[],
+              4:[[[2.1529, 0.0, 1.9465],
+                  [0.0, -0.00014835, 0.0, 1.0]],
+                  [1.8499, 0.000, 1.9464],
+                  [-4.0e-06, -4.0e-06, 0.0, -0.00012, -0.00017, 0.0, 0.0, 0.0]],
               5:[]}
 
 
@@ -76,12 +79,12 @@ def test_code(test_case):
          req.poses[x].orientation.z, req.poses[x].orientation.w])
 
 
-    theta1 = 0
-    theta2 = 0
-    theta3 = 0
-    theta4 = 0
-    theta5 = 0
-    theta6 = 0
+    theta1 = test_case[2][0]
+    theta2 = test_case[2][1]
+    theta3 = test_case[2][2]
+    theta4 = test_case[2][3]
+    theta5 = test_case[2][4]
+    theta6 = test_case[2][5]
 
 
     ### Create symbols for joint variables
@@ -143,9 +146,9 @@ def test_code(test_case):
 
     R_corr = R_z * R_y
     T_total = T0_G * R_corr
-    print(Matrix(T_total.evalf(subs={q1: 0, q2: 0, q3: 0, q4: 0, q5: 0, q6: 0, q7: 0})))
-
-
+    # print(Matrix(T_total.evalf(subs={q1: 0, q2: 0, q3: 0, q4: 0, q5: 0, q6: 0, q7: 0})))
+    temp_results = Matrix(T_total.evalf(subs={q1: theta1, q2: theta2, q3: theta3, q4: theta4, q5: theta5, q6: theta6, q7: 0}))
+    print(temp_results[0, 3], " ", temp_results[1, 3], " ", temp_results[2, 3])
 
     # calculate o4o5o6 (wrist center location)
     r, p, y = symbols('r p y')
@@ -164,14 +167,17 @@ def test_code(test_case):
                      [      0,       0,   1, 0],
                      [      0,       0,   0, 1]])  # YAW
 
-    p = Matrix([[px], [py], [pz], [1]])
-    d6 = Matrix([[0], [0], [-(0.193 + 0.11)], [1]])  # from gripper_link to link5
+    # We will translate along z-xis
+    # First the gripper and WC frames are aligned
+    # and then translated
+    p = Matrix([[px], [py], [pz]])
+    d6 = Matrix([[0], [0], [0.193 + 0.11]])
     R_ee = R_ee_z * R_ee_y * R_ee_x
     R_ee = R_ee.subs({'r': roll, 'p': pitch, 'y': yaw})
-    WC = p - R_ee*T_total*d6
+    WC = p - R_ee[:3, :3]*R_corr[:3,:3]*d6  # we will use only the rotation part of the matrices
 
-    WC = WC.evalf(subs={q1: 0, q2: 0, q3: 0, q4: 0, q5: 0, q6: 0, q7: 0})
-
+    WC = WC.evalf(subs={q1: theta1, q2: theta2, q3: theta3, q4: theta4, q5: theta5, q6: theta6, q7: 0})
+    print(WC[0], " ", WC[1], " ", WC[2])
     ### calculate theta1, theta2 and theta3
     theta1 = atan2(WC[1], WC[0])
 
@@ -256,6 +262,6 @@ def test_code(test_case):
 
 if __name__ == "__main__":
     # Change test case number for different scenarios
-    test_case_number = 1
+    test_case_number = 3
 
     test_code(test_cases[test_case_number])
