@@ -91,7 +91,7 @@ def test_code(test_case):
     # alpha: twist angle
     # a: link length
     # d: link offsets
-    # q: theta variables (note: not the joint angle!)
+    # q: theta variables
     q1, q2, q3, q4, q5, q6, q7 = symbols('q1:8')
     d1, d2, d3, d4, d5, d6, d7 = symbols('d1:8')
     a0, a1, a2, a3, a4, a5, a6 = symbols('a0:7')
@@ -147,8 +147,8 @@ def test_code(test_case):
     R_corr = R_z * R_y
     T_total = T0_G * R_corr
     # print(Matrix(T_total.evalf(subs={q1: 0, q2: 0, q3: 0, q4: 0, q5: 0, q6: 0, q7: 0})))
-    temp_results = Matrix(T_total.evalf(subs={q1: theta1, q2: theta2, q3: theta3, q4: theta4, q5: theta5, q6: theta6, q7: 0}))
-    print(temp_results[0, 3], " ", temp_results[1, 3], " ", temp_results[2, 3])
+    ee = Matrix(T_total.evalf(subs={q1: theta1, q2: theta2, q3: theta3, q4: theta4, q5: theta5, q6: theta6, q7: 0}))
+    print(ee[0, 3], " ", ee[1, 3], " ", ee[2, 3])
 
     # calculate o4o5o6 (wrist center location)
     r, p, y = symbols('r p y')
@@ -178,25 +178,54 @@ def test_code(test_case):
 
     WC = WC.evalf(subs={q1: theta1, q2: theta2, q3: theta3, q4: theta4, q5: theta5, q6: theta6, q7: 0})
     print(WC[0], " ", WC[1], " ", WC[2])
+
+
     ### calculate theta1, theta2 and theta3
     theta1 = atan2(WC[1], WC[0])
-
+    theta1 = theta1.evalf()
+    print("Theta1: ", theta1)
     # sides
     B = np.sqrt(float((np.sqrt(float(WC[0]**2+WC[1]**2))-DH_table[a1])**2 + (WC[2]-DH_table[d1])**2))
     A = DH_table[d4]  # link 3 to link 5 TODO: in the example code the value is 1.501 ??
     C = DH_table[a2]
 
     # angles
-    a = acos((B * B * C * C - A * A) / (2 * B * C))
-    b = acos((A * A * C * C - B * B) / (2 * A * C))
-    c = acos((A * A * B * B - C * C) / (2 * A * B))
+    a = acos((B * B + C * C - A * A) / (2 * B * C))
+    b = acos((A * A + C * C - B * B) / (2 * A * C))
+    c = acos((A * A + B * B - C * C) / (2 * A * B))
 
-    #theta2 = pi / 2 - a - acos((np.sqrt(float(WC[0]**2+WC[1]**2))-DH_table[a1]),B)
+    # theta2 = pi / 2 - a - acos((np.sqrt(float(WC[0]**2+WC[1]**2))-DH_table[a1]) / B) # TODO: fix to atan2
+    theta2 = pi / 2 - a  -atan2(WC[2] - 0.75, sqrt(WC[0]*WC[0]+WC[1]*WC[1]) - 0.35)
     theta3 = pi / 2 - (b+0.036)  # TODO: CHECK
+    theta2 = theta2.evalf()
+    theta3 = theta3.evalf()
+    print("Theta2: ", theta2)
+    print("Theta3: ", theta3)
 
 
+    ### calculate theta1, theta2 and theta3
+    # check the lesson Euler Angles from a Rotation Matrix
+    T0_3 = T0_1 * T1_2 * T2_3
+    T0_3 = T0_3.evalf(subs={q1: theta1, q2: theta2, q3: theta3})
+    T3_6 = T0_3.inv("LU") * R_ee * R_corr
+    T3_6 = T3_6.evalf(subs={q1: theta1, q2: theta2, q3: theta3})
 
-    ## 
+    theta4 = atan2(T3_6[2, 2], -T3_6[0, 2]) # z component
+    theta4 = theta4.evalf()
+    print("Theta4: ", theta4)
+
+    #theta5 = atan2(-T3_6[2, 0], np.sqrt(float(T3_6[0, 0]*T3_6[0, 0] +T3_6[0, 1]*T3_6[0, 1]))) # y component
+    theta5 = atan2(sqrt(T3_6[0,2]*T3_6[0,2]+T3_6[2,2]*T3_6[2,2]),T3_6[1,2])
+    theta5 = theta5.evalf()
+    print("Theta5: ", theta5)
+
+    #theta6 = atan2(T3_6[2, 1],T3_6[2, 2])# x component
+    theta6 = atan2(-T3_6[1,1], T3_6[1,0])
+    theta6 = theta6.evalf()
+    print("Theta6: ", theta6)
+
+
+    ##
     ########################################################################################
     
     ########################################################################################
@@ -207,11 +236,10 @@ def test_code(test_case):
 
     ## End your code input for forward kinematics here!
     ########################################################################################
-    ''' COMMENT OUT 
+
     ## For error analysis please set the following variables of your WC location and EE location in the format of [x,y,z]
-    pos_wc = T_total * np.array([0, 0, 0, 1])
-    your_wc = pos_wc[:,3][:3]  # <--- Load your calculated WC values in this array
-    your_ee = pos_wc[:,3][:3]  # <--- Load your calculated end effector value from your forward kinematics
+    your_wc = [WC[0], WC[1], WC[2]]  # <--- Load your calculated WC values in this array
+    your_ee = [ee[0, 3], ee[1, 3], ee[2, 3]]  # <--- Load your calculated end effector value from your forward kinematics
     ########################################################################################
 
     ## Error analysis
@@ -257,11 +285,11 @@ def test_code(test_case):
         print ("End effector error for z position is: %04.8f" % ee_z_e)
         print ("Overall end effector offset is: %04.8f units \n" % ee_offset)
 
-'''
+
 
 
 if __name__ == "__main__":
     # Change test case number for different scenarios
-    test_case_number = 3
+    test_case_number = 4
 
     test_code(test_cases[test_case_number])
