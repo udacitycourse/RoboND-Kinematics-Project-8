@@ -174,19 +174,18 @@ def test_code(test_case):
     d6 = Matrix([[0], [0], [0.193 + 0.11]])
     R_ee = R_ee_z * R_ee_y * R_ee_x
     R_ee = R_ee.subs({'r': roll, 'p': pitch, 'y': yaw})
-    WC = p - R_ee[:3, :3]*R_corr[:3,:3]*d6  # we will use only the rotation part of the matrices
-
-    WC = WC.evalf(subs={q1: theta1, q2: theta2, q3: theta3, q4: theta4, q5: theta5, q6: theta6, q7: 0})
-    print(WC[0], " ", WC[1], " ", WC[2])
+    WC = p - R_ee[:3, :3]*R_corr[:3, :3]*d6  # we will use only the rotation part of the matrices
+    print("Wrist location: ", WC[0], " ", WC[1], " ", WC[2])
 
 
     ### calculate theta1, theta2 and theta3
     theta1 = atan2(WC[1], WC[0])
     theta1 = theta1.evalf()
+
     print("Theta1: ", theta1)
     # sides
     B = np.sqrt(float((np.sqrt(float(WC[0]**2+WC[1]**2))-DH_table[a1])**2 + (WC[2]-DH_table[d1])**2))
-    A = DH_table[d4]  # link 3 to link 5 TODO: in the example code the value is 1.501 ??
+    A = 1.501  # link 3 to link 5 TODO: in the example code the value is 1.501 and this in my opinion should be DH_table[d4]
     C = DH_table[a2]
 
     # angles
@@ -195,7 +194,7 @@ def test_code(test_case):
     c = acos((A * A + B * B - C * C) / (2 * A * B))
 
     # theta2 = pi / 2 - a - acos((np.sqrt(float(WC[0]**2+WC[1]**2))-DH_table[a1]) / B) # TODO: fix to atan2
-    theta2 = pi / 2 - a  -atan2(WC[2] - 0.75, sqrt(WC[0]*WC[0]+WC[1]*WC[1]) - 0.35)
+    theta2 = pi / 2 - a  - atan2(WC[2] - 0.75, sqrt(WC[0]*WC[0]+WC[1]*WC[1]) - 0.35)
     theta3 = pi / 2 - (b+0.036)  # TODO: CHECK
     theta2 = theta2.evalf()
     theta3 = theta3.evalf()
@@ -215,12 +214,12 @@ def test_code(test_case):
     print("Theta4: ", theta4)
 
     #theta5 = atan2(-T3_6[2, 0], np.sqrt(float(T3_6[0, 0]*T3_6[0, 0] +T3_6[0, 1]*T3_6[0, 1]))) # y component
-    theta5 = atan2(sqrt(T3_6[0,2]*T3_6[0,2]+T3_6[2,2]*T3_6[2,2]),T3_6[1,2])
+    theta5 = atan2(sqrt(T3_6[0, 2]*T3_6[0, 2]+T3_6[2, 2]*T3_6[2, 2]),T3_6[1, 2])
     theta5 = theta5.evalf()
     print("Theta5: ", theta5)
 
     #theta6 = atan2(T3_6[2, 1],T3_6[2, 2])# x component
-    theta6 = atan2(-T3_6[1,1], T3_6[1,0])
+    theta6 = atan2(-T3_6[1, 1], T3_6[1, 0])
     theta6 = theta6.evalf()
     print("Theta6: ", theta6)
 
@@ -236,10 +235,10 @@ def test_code(test_case):
 
     ## End your code input for forward kinematics here!
     ########################################################################################
-
+    fk = T0_G.evalf(subs={q1: theta1, q2: theta2, q3: theta3, q4: theta4, q5: theta5, q6: theta6, q7: 0})
     ## For error analysis please set the following variables of your WC location and EE location in the format of [x,y,z]
     your_wc = [WC[0], WC[1], WC[2]]  # <--- Load your calculated WC values in this array
-    your_ee = [ee[0, 3], ee[1, 3], ee[2, 3]]  # <--- Load your calculated end effector value from your forward kinematics
+    your_ee = [fk[0, 3], fk[1, 3], fk[2, 3]]  # <--- Load your calculated end effector value from your forward kinematics
     ########################################################################################
 
     ## Error analysis
@@ -290,6 +289,6 @@ def test_code(test_case):
 
 if __name__ == "__main__":
     # Change test case number for different scenarios
-    test_case_number = 4
+    test_case_number = 1
 
     test_code(test_cases[test_case_number])
